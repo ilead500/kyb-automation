@@ -1,5 +1,6 @@
 from fastapi import FastAPI, Request
-from starlette.responses import JSONResponse
+from fastapi.responses import JSONResponse
+import uvicorn
 
 app = FastAPI()
 
@@ -16,12 +17,13 @@ async def handle_slack_command(request: Request):
         })
 
     return JSONResponse({"text": "Unknown command"})
-def main():
-    print("KYB Automation Project Started")
 
+# Entry point
 if __name__ == "__main__":
-    main()
+    print("✅ KYB Automation Project Started")
+    uvicorn.run("main:app", host="0.0.0.0", port=8080)
 
-python app/main.py
 
-dir
+
+
+
