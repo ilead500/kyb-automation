@@ -1,0 +1,120 @@
+{
+  "business": {
+    "name": "Concept Distributors LLC",
+    "registered_address_same_as_physical": true,
+    "tax_id": "123456789",
+    "physical_address": {
+      "street_1": "100 Example Blvd",
+      "city": "Clearwater",
+      "state": "FL",
+      "postal_code": "33765",
+      "country": "US"
+    },
+    "registered_address": {
+      "street_1": "200 Registry Ave",
+      "street_2": "Suite 10B",
+      "city": "Clearwater",
+      "state": "FL",
+      "postal_code": "33766",
+      "country": "US"
+    }
+  },
+  "control_person": {
+    "name": {
+      "first": "Alex",
+      "middle": "J.",
+      "last": "Walker"
+    },
+    "job_title": "Managing Director",
+    "email": "alex.walker@example.com",
+    "phone_number": "+1-555-111-2222",
+    "dob": "1985-04-10",
+    "gov_id": {
+      "type": "Driver's License",
+      "number": "D12345678",
+      "expiration": "2027-08-31"
+    },
+    "address": {
+      "street_1": "123 Main St",
+      "city": "Clearwater",
+      "state": "FL",
+      "postal_code": "33765",
+      "country": "US"
+    },
+    "ssn": "123-45-6789"
+  },
+  "form_filler": {
+    "name": {
+      "first": "Jamie",
+      "middle": "L.",
+      "last": "Chen"
+    },
+    "email": "jamie.chen@example.com",
+    "phone_number": "+1-555-333-4444",
+    "is_control_person": false
+  },
+  "beneficial_owners": [
+    {
+      "name": {
+        "first": "Morgan",
+        "last": "Taylor",
+        "middle": "A."
+      },
+      "ownership_percent": 30,
+      "email": "morgan.taylor@example.com",
+      "dob": "1990-06-20",
+      "ssn": "234-56-7890",
+      "gov_id": {
+        "type": "Passport",
+        "number": "P4567890",
+        "expiration": "2030-12-01"
+      },
+      "address": {
+        "street_1": "456 Equity Lane",
+        "city": "Orlando",
+        "state": "FL",
+        "postal_code": "32801",
+        "country": "US"
+      }
+    },
+    {
+      "name": {
+        "first": "Jordan",
+        "last": "Nguyen",
+        "middle": "K."
+      },
+      "ownership_percent": 25,
+      "email": "jordan.nguyen@example.com",
+      "dob": "1988-11-12",
+      "ssn": "345-67-8901",
+      "gov_id": {
+        "type": "State ID",
+        "number": "S9876543",
+        "expiration": "2029-03-15"
+      },
+      "address": {
+        "street_1": "789 Partnership Way",
+        "city": "Miami",
+        "state": "FL",
+        "postal_code": "33101",
+        "country": "US"
+      }
+    }
+  ],
+  "kyb_case_id": "CASE-FAKE-00123",
+  "verification_results": {
+    "watchlist": "clear",
+    "pep": "clear",
+    "adverse_media": "clear",
+    "business_registry": "clear"
+  },
+  "proof_of_address": {
+    "document_type": "Utility Bill",
+    "document_date": "2024-03-05",
+    "status": "approved"
+  },
+  "country_screening": {
+    "prohibited_location": false,
+    "prohibited_industry": false
+  }
+}
