@@ -1,3 +1,4 @@
-web: python main.py
+web: python kyb-review-bot/webhook_server.py
+
 
 
