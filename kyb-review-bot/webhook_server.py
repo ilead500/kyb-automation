@@ -43,6 +43,9 @@ def webhook():
     return jsonify({"message": "Notification sent"}), 200
 
 if __name__ == "__main__":
-    app.run(debug=True, port=5000)
+    from dotenv import load_dotenv
+    load_dotenv()  # Load environment variables
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
+   
 
 
