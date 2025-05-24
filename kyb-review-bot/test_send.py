@@ -1,7 +1,7 @@
 import json
 import os
 from dotenv import load_dotenv
-from slack.client import SlackClient
+from slack_notify.client import SlackClient
 from utils.formatter import format_payload_summary
 
 # Load .env variables
