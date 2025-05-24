@@ -1,7 +1,9 @@
+import uvicorn
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from utils.checklist import validate_kyb_checklist
-from slack.notify import send_slack_message
+from slack_notify.notify import send_slack_message
+
 
 app = FastAPI()
 
@@ -54,7 +56,7 @@ async def slack_command(request: Request):
 if __name__ == "__main__":
     print("✅ KYB Automation Project Started")
     uvicorn.run("main:app", host="0.0.0.0", port=8080)
-    import uvicorn
+   
 
 
 
