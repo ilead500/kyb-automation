@@ -7,6 +7,10 @@ from slack_notify.notify import send_slack_message
 
 app = FastAPI()
 
+@app.get("/")
+async def root():
+    return {"message": "KYB Bot is running"}
+
 @app.post("/slack/commands")
 async def slack_command(request: Request):
     form = await request.form()
