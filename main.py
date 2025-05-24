@@ -7,15 +7,27 @@ from slack_notify.notify import send_slack_message
 
 app = FastAPI()
 
+class SlackChallenge(BaseModel):
+    challenge: str
+    type: str
+
 @app.get("/")
 async def root():
     return {"message": "KYB Bot is running"}
 
 @app.post("/slack/commands")
 async def slack_command(request: Request):
-    form = await request.form()
-    case_id = form.get("text")  # Expected format: case ID passed from slash command
+    # First handle Slack's URL verification
+    try:
+        json_data = await request.json()
+        if json_data.get("type") == "url_verification":
+            return JSONResponse(content={"challenge": json_data["challenge"]})
+    except:
+        pass  # Continue with form data processing
 
+    # Your existing KYB processing
+    form_data = await request.form()
+    case_id = form_data.get("text")
     # In real scenario, you'd fetch KYB data using the case_id.
     # For now, let's simulate it with test data:
     fake_payload = {
