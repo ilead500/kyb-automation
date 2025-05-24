@@ -1,4 +1,5 @@
 import uvicorn
+from pydantic import BaseModel
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from utils.checklist import validate_kyb_checklist
@@ -28,6 +29,7 @@ async def slack_command(request: Request):
     # Your existing KYB processing
     form_data = await request.form()
     case_id = form_data.get("text")
+
     # In real scenario, you'd fetch KYB data using the case_id.
     # For now, let's simulate it with test data:
     fake_payload = {
