@@ -38,4 +38,6 @@ def validate_kyb_checklist(data):
         "passed": len(failures) == 0,
         "failures": failures
     }
-
+if __name__ == "__main__":
+    test_payload = {}  # your test data
+    print(validate_kyb_checklist(test_payload))

@@ -1,8 +1,9 @@
-from dotenv import load_dotenv
-load_dotenv()
 # slack_notify/notify.py
 import os
 import requests
+from dotenv import load_dotenv
+
+load_dotenv()
 
 def send_slack_message(data=None, text=None, blocks=None):
     SLACK_WEBHOOK_URL = os.getenv("SLACK_WEBHOOK_URL")
