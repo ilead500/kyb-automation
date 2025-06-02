@@ -1,3 +1,10 @@
+# main.py (or your entry point file)
+from dotenv import load_dotenv  # Note the double backslashes!
+import os
+
+# Now you can safely use os.getenv()
+slack_token = os.getenv("SLACK_API_TOKEN")
+persona_key = os.getenv("PERSONA_API_KEY")
 import uvicorn
 import os
 import json
@@ -35,22 +42,13 @@ async def fetch_persona_case(case_id: str):
 async def root():
     return {"message": "KYB Bot is running"}
 
-@app.post("/slack/commands")
-async def slack_command(request: Request):
-    # Handle Slack's URL verification
-    try:
-        json_data = await request.json()
-        if json_data.get("type") == "url_verification":
-            return JSONResponse(content={"challenge": json_data["challenge"]})
-    except:
-        pass  # Continue with form data processing
+# Test with minimal valid payload
+$body = @{
+    "text" = "case_123"  # Slack always sends command text in "text" field
+    "user_id" = "U12345" # Example additional field
+} | ConvertTo-Json
 
-    form_data = await request.form()
-    case_id = form_data.get("text")
-    case_data = await fetch_persona_case(case_id)
-    checklist_result = validate_kyb_checklist(case_data)
-    await send_slack_message(case_data, checklist_result)
-    return JSONResponse({"response_type": "ephemeral", "text": "Processing your request..."})
+Invoke-RestMethod -Uri "http://localhost:8000/slack/commands" -Method Post -Body $body -ContentType "application/json"
 
 @app.post("/persona/webhook")
 async def handle_persona_webhook(request: Request):
