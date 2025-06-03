@@ -1,7 +1,4 @@
-# main.py (or your entry point file)
 from dotenv import load_dotenv  # Note the double backslashes!
-import os
-
 # Now you can safely use os.getenv()
 slack_token = os.getenv("SLACK_API_TOKEN")
 persona_key = os.getenv("PERSONA_API_KEY")
@@ -70,7 +67,6 @@ async def slack_command(request: Request):
     except Exception as e:
         print(f"Error processing Slack command: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
-# ▲▲▲ REPLACE UP TO HERE
 
 @app.post("/persona/webhook")
 async def handle_persona_webhook(request: Request):
@@ -86,6 +82,7 @@ async def handle_persona_webhook(request: Request):
         raise HTTPException(status_code=403, detail="Forbidden")
 
     data = await request.json()
+    print(f"Webhook received: {data}")
     
     if data.get("event_type") == "case.created":
         case_id = data["payload"]["id"]
