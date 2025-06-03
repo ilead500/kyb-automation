@@ -43,40 +43,39 @@ async def root():
 @app.post("/slack/commands")
 async def slack_command(request: Request):
     try:
-        print("Received Slack command request")
         data = await request.json()
-        print(f"Request data: {data}")
-        case_id = data.get("text")
-
-        if not case_id:
-            return JSONResponse({
-                "response_type": "ephemeral",
-                "text": "Please provide a case ID (e.g. `/kyb CASE-123`)"
-            })
+        case_id = data.get("text", "CASE-DEMO-001")  # Default for demo
         
-        # For demo purposes - use mock data if no Persona connection
-        if case_id.startswith("CASE-FAKE-"):
-            mock_data = {
-                "id": case_id,
-                "business": {"name": "Demo Business LLC", "incorporation_country": "US"},
-                "control_person": {"full_name": "Demo Owner"},
-                "status": "pending"
+        # DEMO-ONLY MOCK DATA
+        mock_data = {
+            "id": case_id,
+            "business": {
+                "name": "Demo Business LLC",
+                "incorporation_country": "US"
+            },
+            "control_person": {
+                "full_name": "Demo Owner"
+            },
+            "status": "pending",
+            "verification": {
+                "watchlist": "clear",
+                "business_registry": "verified"
             }
-            checklist_result = validate_kyb_checklist(mock_data)
-        else:
-            case_data = await fetch_persona_case(case_id)
-            checklist_result = validate_kyb_checklist(case_data)
+        }
         
-        await send_slack_message(case_data if 'case_data' in locals() else mock_data, checklist_result)
+        checklist_result = validate_kyb_checklist(mock_data)
+        await send_slack_message(mock_data, checklist_result)
+        
         return JSONResponse({
             "response_type": "ephemeral", 
-            "text": f"✅ Case {case_id} processed successfully"
+            "text": f"✅ Demo case {case_id} processed"
         })
         
     except Exception as e:
+        print(f"DEBUG ERROR: {str(e)}")  # Critical for troubleshooting
         return JSONResponse({
             "response_type": "ephemeral",
-            "text": f"❌ Error processing case: {str(e)}"
+            "text": f"❌ Error: {str(e)}"
         })
 
 @app.post("/persona/webhook")
