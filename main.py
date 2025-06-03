@@ -42,13 +42,24 @@ async def fetch_persona_case(case_id: str):
 async def root():
     return {"message": "KYB Bot is running"}
 
-# Test with minimal valid payload
-$body = @{
-    "text" = "case_123"  # Slack always sends command text in "text" field
-    "user_id" = "U12345" # Example additional field
-} | ConvertTo-Json
-
-Invoke-RestMethod -Uri "http://localhost:8000/slack/commands" -Method Post -Body $body -ContentType "application/json"
+@app.post("/slack/commands")
+async def slack_command(request: "Request"):
+ # Replace form_data with direct JSON parsing
+    try:
+        json_data = await request.json()
+        case_id = json_data.get("text")
+        
+        if not case_id:
+            raise HTTPException(status_code=400, detail="Missing 'text' field")
+        
+        case_data = await fetch_persona_case(case_id)
+        checklist_result = validate_kyb_checklist(case_data)
+        await send_slack_message(case_data, checklist_result)
+        return JSONResponse(
+            {"response_type": "ephemeral", "text": "Processing your request..."}
+        )
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=400, detail="Invalid JSON")
 
 @app.post("/persona/webhook")
 async def handle_persona_webhook(request: Request):
