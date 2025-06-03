@@ -1,9 +1,9 @@
+import os
 from dotenv import load_dotenv  # Note the double backslashes!
 # Now you can safely use os.getenv()
 slack_token = os.getenv("SLACK_API_TOKEN")
 persona_key = os.getenv("PERSONA_API_KEY")
 import uvicorn
-import os
 import json
 import httpx
 from pydantic import BaseModel
