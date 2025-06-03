@@ -43,30 +43,65 @@ async def root():
 @app.post("/slack/commands")
 async def slack_command(request: Request):
     try:
-        # Add debug logging
         print("Received Slack command request")
-        
-        json_data = await request.json()
-        print(f"Request data: {json_data}")
-        
-        case_id = json_data.get("text")
+        data = await request.json()
+        print(f"Request data: {data}")
+        case_id = data.get("text")
+
         if not case_id:
-            raise HTTPException(status_code=400, detail="Missing 'text' field")
+            return JSONResponse({
+                "response_type": "ephemeral",
+                "text": "Please provide a case ID (e.g. `/kyb CASE-123`)"
+            })
         
-        case_data = await fetch_persona_case(case_id)
-        print(f"Persona case data: {case_data}")
+        # For demo purposes - use mock data if no Persona connection
+        if case_id.startswith("CASE-FAKE-"):
+            mock_data = {
+                "id": case_id,
+                "business": {"name": "Demo Business LLC", "incorporation_country": "US"},
+                "control_person": {"full_name": "Demo Owner"},
+                "status": "pending"
+            }
+            checklist_result = validate_kyb_checklist(mock_data)
+        else:
+            case_data = await fetch_persona_case(case_id)
+            checklist_result = validate_kyb_checklist(case_data)
         
-        checklist_result = validate_kyb_checklist(case_data)
-        print(f"Checklist result: {checklist_result}")
-        
-        await send_slack_message(case_data, checklist_result)
-        return JSONResponse(
-            {"response_type": "ephemeral", "text": "Processing your request..."}
-        )
+        await send_slack_message(case_data if 'case_data' in locals() else mock_data, checklist_result)
+        return JSONResponse({
+            "response_type": "ephemeral", 
+            "text": f"✅ Case {case_id} processed successfully"
+        })
         
     except Exception as e:
-        print(f"Error processing Slack command: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+        return JSONResponse({
+            "response_type": "ephemeral",
+            "text": f"❌ Error processing case: {str(e)}"
+        })
+
+@app.post("/persona/webhook")
+async def handle_persona_webhook(request: Request):
+    # Get the expected signature from environment
+    expected_sig = os.getenv("PERSONA_WEBHOOK_SECRET")
+    if not expected_sig:
+        raise HTTPException(status_code=500, detail="Webhook secret not configured")
+    
+    # Compare signatures securely
+    received_sig = request.headers.get("Persona-Signature")
+    if not received_sig or received_sig != expected_sig:
+        print(f"Signature mismatch. Expected: {expected_sig}, Received: {received_sig}")
+        raise HTTPException(status_code=403, detail="Forbidden")
+
+    data = await request.json()
+    print(f"Webhook received: {data}")
+    
+    if data.get("event_type") == "case.created":
+        case_id = data["payload"]["id"]
+        case_data = await fetch_persona_case(case_id)
+        checklist_result = validate_kyb_checklist(case_data)
+        await send_slack_message(case_data, checklist_result)
+    
+    return {"status": "ok"}
 
 @app.post("/persona/webhook")
 async def handle_persona_webhook(request: Request):
@@ -94,21 +129,34 @@ async def handle_persona_webhook(request: Request):
 
 @app.post("/mock/persona-webhook")
 async def mock_persona_webhook():
-    """Test endpoint that mimics Persona's real webhook payload"""
     test_payload = {
         "event_type": "case.created",
         "payload": {
-            "id": "test_123",
-            "business": {"name": "Test Business LLC"},
-            "verification": {"status": "pending"},
-            "documents": [{"type": "license", "status": "required"}]
+            "id": "CASE-DEMO-001",
+            "business": {
+                "name": "Demo Client Inc",
+                "incorporation_country": "US",
+                "tax_id": "DEMO123"
+            },
+            "control_person": {
+                "full_name": "Demo Director",
+                "email": "demo@example.com"
+            },
+            "status": "pending",
+            "verification": {
+                "watchlist": "clear",
+                "business_registry": "verified"
+            }
         }
     }
     
     fake_request = Request(
         scope={
             "type": "http",
-            "headers": [(b"persona-signature", b"mock_signature")]
+            "headers": [
+                (b"persona-signature", b"mock_signature"),
+                (b"content-type", b"application/json")
+            ]
         },
         receive=None,
         send=None,
