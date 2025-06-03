@@ -42,30 +42,48 @@ async def fetch_persona_case(case_id: str):
 async def root():
     return {"message": "KYB Bot is running"}
 
+# REPLACE THIS ENTIRE BLOCK ▼▼▼
 @app.post("/slack/commands")
-async def slack_command(request: "Request"):
- # Replace form_data with direct JSON parsing
+async def slack_command(request: Request):
     try:
-        json_data = await request.json()
-        case_id = json_data.get("text")
+        # Add debug logging
+        print("Received Slack command request")
         
+        json_data = await request.json()
+        print(f"Request data: {json_data}")
+        
+        case_id = json_data.get("text")
         if not case_id:
             raise HTTPException(status_code=400, detail="Missing 'text' field")
         
         case_data = await fetch_persona_case(case_id)
+        print(f"Persona case data: {case_data}")
+        
         checklist_result = validate_kyb_checklist(case_data)
+        print(f"Checklist result: {checklist_result}")
+        
         await send_slack_message(case_data, checklist_result)
         return JSONResponse(
             {"response_type": "ephemeral", "text": "Processing your request..."}
         )
-    except json.JSONDecodeError:
-        raise HTTPException(status_code=400, detail="Invalid JSON")
+        
+    except Exception as e:
+        print(f"Error processing Slack command: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+# ▲▲▲ REPLACE UP TO HERE
 
 @app.post("/persona/webhook")
 async def handle_persona_webhook(request: Request):
-    # Verify webhook secret
-    if request.headers.get("Persona-Signature") != os.getenv("PERSONA_WEBHOOK_SECRET"):
-        raise HTTPException(status_code=403)
+    # Get the expected signature from environment
+    expected_sig = os.getenv("PERSONA_WEBHOOK_SECRET")
+    if not expected_sig:
+        raise HTTPException(status_code=500, detail="Webhook secret not configured")
+    
+    # Compare signatures securely
+    received_sig = request.headers.get("Persona-Signature")
+    if not received_sig or received_sig != expected_sig:
+        print(f"Signature mismatch. Expected: {expected_sig}, Received: {received_sig}")
+        raise HTTPException(status_code=403, detail="Forbidden")
 
     data = await request.json()
     
