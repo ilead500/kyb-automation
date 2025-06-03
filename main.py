@@ -129,41 +129,50 @@ async def handle_persona_webhook(request: Request):
 
 @app.post("/mock/persona-webhook")
 async def mock_persona_webhook():
-    test_payload = {
-        "event_type": "case.created",
-        "payload": {
-            "id": "CASE-DEMO-001",
-            "business": {
-                "name": "Demo Client Inc",
-                "incorporation_country": "US",
-                "tax_id": "DEMO123"
-            },
-            "control_person": {
-                "full_name": "Demo Director",
-                "email": "demo@example.com"
-            },
-            "status": "pending",
-            "verification": {
-                "watchlist": "clear",
-                "business_registry": "verified"
+    try:
+        test_payload = {
+            "event_type": "case.created",
+            "payload": {
+                "id": "CASE-DEMO-001",
+                "business": {
+                    "name": "Demo Client Inc",
+                    "incorporation_country": "US"
+                },
+                "control_person": {
+                    "full_name": "Demo Director"
+                },
+                "status": "pending",
+                "verification": {
+                    "watchlist": "clear"
+                }
             }
         }
-    }
-    
-    fake_request = Request(
-        scope={
-            "type": "http",
-            "headers": [
-                (b"persona-signature", b"mock_signature"),
-                (b"content-type", b"application/json")
-            ]
-        },
-        receive=None,
-        send=None,
-        body=json.dumps(test_payload).encode()
-    )
-    
-    return await handle_persona_webhook(fake_request)
+        
+        # Bypass signature check for demo
+        fake_request = Request(
+            scope={
+                "type": "http",
+                "headers": [
+                    (b"persona-signature", b"demo_signature"),
+                    (b"content-type", b"application/json")
+                ]
+            },
+            receive=None,
+            send=None,
+            body=json.dumps(test_payload).encode()
+        )
+        
+        # Directly call the processing logic
+        data = await fake_request.json()
+        case_id = data["payload"]["id"]
+        checklist_result = validate_kyb_checklist(data["payload"])
+        await send_slack_message(data["payload"], checklist_result)
+        
+        return {"status": "ok"}
+        
+    except Exception as e:
+        print(f"WEBHOOK ERROR: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 # ===== ENTRY POINT =====
 if __name__ == "__main__":
