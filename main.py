@@ -30,17 +30,22 @@ class SlackChallenge(BaseModel):
 
 # ===== CORE FUNCTIONS =====
 async def fetch_persona_case(case_id: str):
-    """Fetch case details from Persona API"""
     async with httpx.AsyncClient() as client:
-        response = await client.get(
-            f"https://withpersona.com/api/v1/cases/{case_id}",
-            headers={
-                "Authorization": f"Bearer {PERSONA_KEY}",  # Use the pre-loaded variable
-                "Persona-Version": "2023-01-05"
-            }
-        )
-        response.raise_for_status()
-        return response.json()
+        try:
+            response = await client.get(
+                f"https://withpersona.com/api/v1/cases/{case_id}",
+                headers={
+                    "Authorization": f"Bearer {os.getenv('PERSONA_API_KEY')}",
+                    "Persona-Version": "2023-01-05",
+                    "Accept": "application/json"
+                },
+                timeout=30.0
+            )
+            response.raise_for_status()
+            return response.json()
+        except httpx.HTTPStatusError as e:
+            print(f"Persona API Error: {e.response.text}")
+            return None
 
 # ===== ROUTES =====
 @app.get("/")
