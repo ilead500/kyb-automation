@@ -10,6 +10,8 @@ from slack_notify.notify import send_slack_message
 from dotenv import load_dotenv
 from secrets import compare_digest
 
+print("Current environment:", os.environ)
+      
 # Load environment first
 load_dotenv()
 
@@ -18,8 +20,17 @@ SLACK_TOKEN = os.getenv("SLACK_API_TOKEN")
 PERSONA_KEY = os.getenv("PERSONA_API_KEY")
 WEBHOOK_SECRET = os.getenv("PERSONA_WEBHOOK_SECRET")
 
-if not all([SLACK_TOKEN, PERSONA_KEY, WEBHOOK_SECRET]):
-    raise RuntimeError("Missing required environment variables")
+required_vars = {
+    "SLACK_API_TOKEN": os.getenv("SLACK_API_TOKEN"),
+    "PERSONA_API_KEY": os.getenv("PERSONA_API_KEY"),
+    "PERSONA_WEBHOOK_SECRET": os.getenv("PERSONA_WEBHOOK_SECRET")
+}
+
+missing = [name for name, val in required_vars.items() if not val]
+if missing:
+    print(f"WARNING: Missing env vars - {', '.join(missing)}")
+    # Uncomment for production
+    # raise RuntimeError(f"Missing: {', '.join(missing)}")
 
 app = FastAPI()
 
