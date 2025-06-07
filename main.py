@@ -15,7 +15,7 @@ print("Current environment:", os.environ)
 # Load environment first
 load_dotenv()
 
-# Validate critical environment variables
+# Validate critical environment variablescd
 SLACK_TOKEN = os.getenv("SLACK_API_TOKEN")
 PERSONA_KEY = os.getenv("PERSONA_API_KEY")
 WEBHOOK_SECRET = os.getenv("PERSONA_WEBHOOK_SECRET")
