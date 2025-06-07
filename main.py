@@ -21,16 +21,14 @@ PERSONA_KEY = os.getenv("PERSONA_API_KEY")
 WEBHOOK_SECRET = os.getenv("PERSONA_WEBHOOK_SECRET")
 
 required_vars = {
-    "SLACK_API_TOKEN": os.getenv("SLACK_API_TOKEN"),
-    "PERSONA_API_KEY": os.getenv("PERSONA_API_KEY"),
-    "PERSONA_WEBHOOK_SECRET": os.getenv("PERSONA_WEBHOOK_SECRET")
+    "SLACK_API_TOKEN": SLACK_TOKEN,
+    "PERSONA_API_KEY": PERSONA_KEY,
+    "PERSONA_WEBHOOK_SECRET": WEBHOOK_SECRET
 }
 
-missing = [name for name, val in required_vars.items() if not val]
-if missing:
-    print(f"WARNING: Missing env vars - {', '.join(missing)}")
-    # Uncomment for production
-    # raise RuntimeError(f"Missing: {', '.join(missing)}")
+if not all(required_vars.values()):
+    missing = [name for name, val in required_vars.items() if not val]
+    raise RuntimeError(f"CRITICAL: Missing env vars - {', '.join(missing)}")
 
 app = FastAPI()
 
@@ -116,19 +114,21 @@ async def slack_command(request: Request):
 
 @app.post("/persona/webhook")
 async def handle_persona_webhook(request: Request):
-    # Signature verification
-    received_sig = request.headers.get("Persona-Signature")
-    if not compare_digest(received_sig or "", WEBHOOK_SECRET):
-        raise HTTPException(status_code=403, detail="Forbidden")
-
-    data = await request.json()
-    print(f"Webhook received: {data}")
+    if not WEBHOOK_SECRET:
+        raise HTTPException(status_code=500, detail="Webhook not configured")
     
-    if data.get("event_type") == "case.created":
-        case_id = data["payload"]["id"]
-        case_data = await fetch_persona_case(case_id)
-        checklist_result = validate_kyb_checklist(case_data)
-        await send_slack_message(case_data, checklist_result)
+    # Add this verification FIRST
+    body = await request.body()
+    received_sig = request.headers.get("Persona-Signature", "")
+    
+    if not compare_digest(received_sig, WEBHOOK_SECRET):
+        print(f"Invalid signature! Received: {received_sig}")
+        raise HTTPException(status_code=403, detail="Forbidden")
+    
+    try:
+        data = json.loads(body)
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=400, detail="Invalid JSON")
     
     return {"status": "ok"}
 
@@ -182,5 +182,6 @@ async def slack_oauth_callback(code: str):
         return response.json()  # Returns access tokens
 
 if __name__ == "__main__":
+    port = int(os.getenv("PORT", 8000))  # Railway uses PORT env var
     print("✅ KYB Automation Project Started")
-    uvicorn.run(app, host="0.0.0.0", port=8000)  # Consistent port
+    uvicorn.run(app, host="0.0.0.0", port=port)
