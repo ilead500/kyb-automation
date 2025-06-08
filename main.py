@@ -135,6 +135,10 @@ async def handle_persona_webhook(request: Request):
 @app.post("/mock/persona-webhook")
 async def mock_webhook_handler():
     """Simplified mock that directly calls the webhook logic"""
+    print("EXPECTED SIGNATURE:", WEBHOOK_SECRET)
+    print("Expected Secret:", WEBHOOK_SECRET)
+    print("Hardcoded Test Sig:", "demo_signature")
+    
     test_payload = {
         "event_type": "case.created",
         "payload": {
