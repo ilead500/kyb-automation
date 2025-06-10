@@ -9,6 +9,13 @@ from utils.checklist import validate_kyb_checklist
 from slack_notify.notify import send_slack_message
 from dotenv import load_dotenv
 from secrets import compare_digest
+from cryptography.fernet import Fernet
+import atexit
+atexit.register(lambda: print("\nCleaning up..."))  # Add cleanup logic if needed
+
+def decrypt_token(encrypted_token: str) -> str:
+    key = os.getenv("ENCRYPTION_KEY")  # Store in Railway
+    return Fernet(key).decrypt(encrypted_token.encode()).decode()
 
 print("Current environment:", os.environ)
       
@@ -63,6 +70,10 @@ async def root():
 
 @app.post("/slack/commands")
 async def slack_command(request: Request):
+    form_data = await request.form()
+    if form_data.get('token') != SLACK_TOKEN:
+        raise HTTPException(status_code=403)
+    print("Received token:", form_data.get('token'))
     try:
         # Debug raw request body
         raw_body = await request.body()
@@ -138,7 +149,7 @@ async def mock_webhook_handler():
     print("EXPECTED SIGNATURE:", WEBHOOK_SECRET)
     print("Expected Secret:", WEBHOOK_SECRET)
     print("Hardcoded Test Sig:", "demo_signature")
-    
+
     test_payload = {
         "event_type": "case.created",
         "payload": {
