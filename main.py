@@ -2,6 +2,7 @@ import os
 import json
 import httpx
 import uvicorn
+import slack_sdk
 from pydantic import BaseModel
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import JSONResponse
@@ -10,8 +11,16 @@ from slack_notify.notify import send_slack_message
 from dotenv import load_dotenv
 from secrets import compare_digest
 from cryptography.fernet import Fernet
+from slack_bolt import App
+slack_app = App(token=os.getenv("SLACK_API_TOKEN"))
 import atexit
 atexit.register(lambda: print("\nCleaning up..."))  # Add cleanup logic if needed
+import logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 
 def decrypt_token(encrypted_token: str) -> str:
     key = os.getenv("ENCRYPTION_KEY")  # Store in Railway
@@ -26,11 +35,13 @@ load_dotenv()
 SLACK_TOKEN = os.getenv("SLACK_API_TOKEN")
 PERSONA_KEY = os.getenv("PERSONA_API_KEY")
 WEBHOOK_SECRET = os.getenv("PERSONA_WEBHOOK_SECRET")
+SLACK_VERIFICATION_TOKEN = os.getenv("SLACK_VERIFICATION_TOKEN")
 
 required_vars = {
     "SLACK_API_TOKEN": SLACK_TOKEN,
     "PERSONA_API_KEY": PERSONA_KEY,
-    "PERSONA_WEBHOOK_SECRET": WEBHOOK_SECRET
+    "PERSONA_WEBHOOK_SECRET": WEBHOOK_SECRET,
+    "SLACK_VERIFICATION_TOKEN": SLACK_VERIFICATION_TOKEN
 }
 
 if not all(required_vars.values()):
@@ -71,7 +82,7 @@ async def root():
 @app.post("/slack/commands")
 async def slack_command(request: Request):
     form_data = await request.form()
-    if form_data.get('token') != SLACK_TOKEN:
+    if form_data.get('token') != SLACK_VERIFICATION_TOKEN:
         raise HTTPException(status_code=403)
     print("Received token:", form_data.get('token'))
     try:
@@ -197,6 +208,6 @@ async def slack_oauth_callback(code: str):
         return response.json()  # Returns access tokens
 
 if __name__ == "__main__":
-    port = int(os.getenv("PORT", 8000))  # Railway uses PORT env var
+    port = int(os.getenv("PORT", 8080))  # Railway uses PORT env var
     print("✅ KYB Automation Project Started")
     uvicorn.run(app, host="0.0.0.0", port=port)
