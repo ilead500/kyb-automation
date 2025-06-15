@@ -4,7 +4,7 @@ import httpx
 import uvicorn
 import slack_sdk
 from pydantic import BaseModel
-from fastapi import FastAPI, Request, HTTPException
+from fastapi import FastAPI, Request, HTTPException, Form
 from fastapi.responses import JSONResponse
 from utils.checklist import validate_kyb_checklist
 from slack_notify.notify import send_slack_message
@@ -12,39 +12,38 @@ from dotenv import load_dotenv
 from secrets import compare_digest
 from cryptography.fernet import Fernet
 from slack_bolt import App
-slack_app = App(token=os.getenv("SLACK_API_TOKEN"))
+from slack_bolt.adapter.fastapi import SlackRequestHandler
 import atexit
-atexit.register(lambda: print("\nCleaning up..."))  # Add cleanup logic if needed
 import logging
+import time
+
+# Initialize logging
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
 
-# Use in endpoints:
-# logger.info(f"Processed case: {case_id}")  # Uncomment and use inside a function where case_id is defined
+# Initialize Slack Bolt
+slack_app = App(token=os.getenv("SLACK_API_TOKEN"))
+handler = SlackRequestHandler(slack_app)
+
+# Cleanup handler
+atexit.register(lambda: logger.info("Shutting down..."))
 
 def decrypt_token(encrypted_token: str) -> str:
-    key = os.getenv("ENCRYPTION_KEY")  # Store in Railway
+    key = os.getenv("ENCRYPTION_KEY")
     return Fernet(key).decrypt(encrypted_token.encode()).decode()
 
 print("Current environment:", os.environ)
-      
-# Load environment first
 load_dotenv()
 
-# Validate critical environment variablescd
-SLACK_TOKEN = os.getenv("SLACK_API_TOKEN")
-PERSONA_KEY = os.getenv("PERSONA_API_KEY")
-WEBHOOK_SECRET = os.getenv("PERSONA_WEBHOOK_SECRET")
-SLACK_VERIFICATION_TOKEN = os.getenv("SLACK_VERIFICATION_TOKEN")
-
+# Validate environment variables
 required_vars = {
-    "SLACK_API_TOKEN": SLACK_TOKEN,
-    "PERSONA_API_KEY": PERSONA_KEY,
-    "PERSONA_WEBHOOK_SECRET": WEBHOOK_SECRET,
-    "SLACK_VERIFICATION_TOKEN": SLACK_VERIFICATION_TOKEN
+    "SLACK_API_TOKEN": os.getenv("SLACK_API_TOKEN"),
+    "PERSONA_API_KEY": os.getenv("PERSONA_API_KEY"),
+    "PERSONA_WEBHOOK_SECRET": os.getenv("PERSONA_WEBHOOK_SECRET"),
+    "SLACK_VERIFICATION_TOKEN": os.getenv("SLACK_VERIFICATION_TOKEN")
 }
 
 if not all(required_vars.values()):
@@ -74,8 +73,13 @@ async def fetch_persona_case(case_id: str):
             response.raise_for_status()
             return response.json()
         except httpx.HTTPStatusError as e:
-            print(f"Persona API Error: {e.response.text}")
+            logger.error(f"Persona API Error: {e.response.text}")
             return None
+
+def log_to_db(action_data: dict):
+    """Simple DB logger (replace with actual implementation)"""
+    logger.info(f"DB LOG: {json.dumps(action_data)}")
+    return True
 
 # ===== ROUTES =====
 @app.get("/")
@@ -83,122 +87,99 @@ async def root():
     return {"message": "KYB Bot is running"}
 
 @app.post("/slack/commands")
-async def slack_command(request: Request):
-    form_data = await request.form()
-    if form_data.get('token') != SLACK_VERIFICATION_TOKEN:
+async def slack_command(
+    token: str = Form(...),
+    command: str = Form(...),
+    text: str = Form(...),
+    response_url: str = Form(None)
+):
+    if not compare_digest(token, os.getenv("SLACK_VERIFICATION_TOKEN")):
         raise HTTPException(status_code=403)
-    print("Received token:", form_data.get('token'))
+    
     try:
-        # Slack sends form data, not JSON
-        case_id = form_data.get("text", "CASE-DEMO-001").strip()
-        
-        # Create properly structured data
+        case_id = text.strip()
+        logger.info(f"Processing /kyb command for case: {case_id}")
+
+        # Replace with actual Persona data fetching
         case_data = {
             "id": case_id,
-            "case_id": case_id,  # Duplicate for compatibility
-            "business": {
-                "name": "Demo Business LLC",
-                "incorporation_country": "US"
-            },
-            "control_person": {
-                "full_name": "Demo Owner"
-            },
+            "business": {"name": "Demo Business LLC"},
             "status": "pending",
-            "verification": {
-                "watchlist": "clear"
-            }
+            "verification": {"watchlist": "clear"}
         }
         
         checklist_result = validate_kyb_checklist(case_data)
-        case_data["checklist_result"] = checklist_result  # Add to payload
+        case_data["checklist_result"] = checklist_result
         
         await send_slack_message(case_data)
         
         return JSONResponse({
             "response_type": "ephemeral",
-            "text": f"Processed case: {case_id}"
+            "text": f"✅ Case {case_id} is being processed..."
         })
     except Exception as e:
-        print(f"Slack command error: {str(e)}")
-        return JSONResponse(
-            {"error": "Internal server error"},
-            status_code=500
-        )
+        logger.error(f"Slack command failed: {str(e)}")
+        return JSONResponse({
+            "response_type": "ephemeral",
+            "text": "⚠️ Failed to process case. Admin notified."
+        })
+
+@app.post("/slack/events")
+async def slack_events(request: Request):
+    return await handler.handle(request)
+
+@slack_app.action("kyb_approve")
+async def handle_approve(ack, body, respond):
+    await ack()
+    try:
+        case_id = body["actions"][0]["value"].split("_")[1]
+        logger.info(f"Approving case {case_id}")
+        log_to_db({
+            "action": "approve",
+            "case_id": case_id,
+            "timestamp": int(time.time())
+        })
+        respond(text=f"✅ Case {case_id} approved!")
+    except Exception as e:
+        logger.error(f"Approval failed: {str(e)}")
+        respond(text="❌ Approval failed")
+
+@slack_app.action("kyb_reject")
+async def handle_reject(ack, body, respond):
+    await ack()
+    try:
+        case_id = body["actions"][0]["value"].split("_")[1]
+        logger.info(f"Rejecting case {case_id}")
+        log_to_db({
+            "action": "reject",
+            "case_id": case_id,
+            "timestamp": int(time.time())
+        })
+        respond(text=f"❌ Case {case_id} rejected!")
+    except Exception as e:
+        logger.error(f"Rejection failed: {str(e)}")
+        respond(text="❌ Rejection failed")
 
 @app.post("/persona/webhook")
 async def handle_persona_webhook(request: Request):
-    if not WEBHOOK_SECRET:
+    if not os.getenv("PERSONA_WEBHOOK_SECRET"):
         raise HTTPException(status_code=500, detail="Webhook not configured")
     
-    # Add this verification FIRST
     body = await request.body()
     received_sig = request.headers.get("Persona-Signature", "")
     
-    if not compare_digest(received_sig, WEBHOOK_SECRET):
-        print(f"Invalid signature! Received: {received_sig}")
-        raise HTTPException(status_code=403, detail="Forbidden")
+    if not compare_digest(received_sig, os.getenv("PERSONA_WEBHOOK_SECRET")):
+        logger.error(f"Invalid webhook signature: {received_sig}")
+        raise HTTPException(status_code=403)
     
     try:
         data = json.loads(body)
+        logger.info(f"Received Persona webhook: {data.get('event_type')}")
+        return {"status": "ok"}
     except json.JSONDecodeError:
         raise HTTPException(status_code=400, detail="Invalid JSON")
-    
-    return {"status": "ok"}
-
-@app.post("/mock/persona-webhook")
-async def mock_webhook_handler():
-    """Simplified mock that directly calls the webhook logic"""
-    print("EXPECTED SIGNATURE:", WEBHOOK_SECRET)
-    print("Expected Secret:", WEBHOOK_SECRET)
-    print("Hardcoded Test Sig:", "demo_signature")
-
-    test_payload = {
-        "event_type": "case.created",
-        "payload": {
-            "id": "CASE-DEMO-001",
-            "business": {
-                "name": "Demo Client Inc",
-                "incorporation_country": "US"
-            },
-            "control_person": {
-                "full_name": "Demo Director"
-            },
-            "status": "pending"
-        }
-    }
-    
-    # Create a mock request
-    from fastapi import Request
-    from starlette.requests import Request as StarletteRequest
-    
-    scope = {
-        "type": "http",
-        "headers": [
-            (b"persona-signature", b"demo_signature"),
-            (b"content-type", b"application/json")
-        ]
-    }
-    
-    mock_request = StarletteRequest(scope=scope)
-    mock_request._body = json.dumps(test_payload).encode()
-    
-    return await handle_persona_webhook(mock_request)
-
-@app.get("/slack/oauth_callback")
-async def slack_oauth_callback(code: str):
-    # Exchange the code for a token
-    async with httpx.AsyncClient() as client:
-        response = await client.post(
-            "https://slack.com/api/oauth.v2.access",
-            data={
-                "code": code,
-                "client_id": os.getenv("SLACK_CLIENT_ID"),
-                "client_secret": os.getenv("SLACK_CLIENT_SECRET")
-            }
-        )
-        return response.json()  # Returns access tokens
 
 if __name__ == "__main__":
-    port = int(os.getenv("PORT", 8080))  # Railway uses PORT env var
-    print("✅ KYB Automation Project Started")
+    port = int(os.getenv("PORT", 8080))
+    logger.info("✅ KYB Automation Project Started")
     uvicorn.run(app, host="0.0.0.0", port=port)
