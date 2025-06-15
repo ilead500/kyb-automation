@@ -1,6 +1,6 @@
 import os
 import requests
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 
 def format_kyb_message(data: Dict[str, Any]) -> str:
     """Format the KYB case details according to buyer's specifications"""
@@ -27,9 +27,31 @@ def format_kyb_message(data: Dict[str, Any]) -> str:
     
     return base_message
 
+def format_buttons(case_id: str) -> List[dict]:
+    """Standardized button format for Slack messages"""
+    return [
+        {
+            "type": "actions",
+            "elements": [
+                {
+                    "type": "button",
+                    "text": {"type": "plain_text", "text": "Approve"},
+                    "style": "primary",
+                    "value": f"approve_{case_id}"
+                },
+                {
+                    "type": "button",
+                    "text": {"type": "plain_text", "text": "Reject"},
+                    "style": "danger",
+                    "value": f"reject_{case_id}"
+                }
+            ]
+        }
+    ]
+
 def send_slack_message(data: Optional[Dict[str, Any]] = None, 
                       text: Optional[str] = None, 
-                      blocks: Optional[list] = None) -> bool:
+                      blocks: Optional[List[dict]] = None) -> bool:
     SLACK_WEBHOOK_URL = os.getenv("SLACK_WEBHOOK_URL")
     if not SLACK_WEBHOOK_URL:
         raise ValueError("SLACK_WEBHOOK_URL environment variable not set")
@@ -47,29 +69,7 @@ def send_slack_message(data: Optional[Dict[str, Any]] = None,
                         "text": format_kyb_message(data)
                     }
                 },
-                {
-                    "type": "actions",
-                    "elements": [
-                        {
-                            "type": "button",
-                            "text": {
-                                "type": "plain_text",
-                                "text": "Approve"
-                            },
-                            "style": "primary",
-                            "value": f"approve_{data.get('id', '')}"
-                        },
-                        {
-                            "type": "button",
-                            "text": {
-                                "type": "plain_text",
-                                "text": "Reject"
-                            },
-                            "style": "danger",
-                            "value": f"reject_{data.get('id', '')}"
-                        }
-                    ]
-                }
+                *format_buttons(data.get('id', ''))  # Use the new button formatter
             ]
         }
     elif text or blocks:
