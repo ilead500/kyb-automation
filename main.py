@@ -22,6 +22,9 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# Use in endpoints:
+# logger.info(f"Processed case: {case_id}")  # Uncomment and use inside a function where case_id is defined
+
 def decrypt_token(encrypted_token: str) -> str:
     key = os.getenv("ENCRYPTION_KEY")  # Store in Railway
     return Fernet(key).decrypt(encrypted_token.encode()).decode()
@@ -86,20 +89,8 @@ async def slack_command(request: Request):
         raise HTTPException(status_code=403)
     print("Received token:", form_data.get('token'))
     try:
-        # Debug raw request body
-        raw_body = await request.body()
-        print("Raw request body:", raw_body)
-              
-        try:
-            data = await request.json()
-        except json.JSONDecodeError:
-            print("Invalid JSON received!")
-            return JSONResponse(
-                {"error": "Invalid JSON"}, 
-                status_code=400
-            )
-    
-        case_id = data.get("text", "CASE-DEMO-001").strip()
+        # Slack sends form data, not JSON
+        case_id = form_data.get("text", "CASE-DEMO-001").strip()
         
         # Create properly structured data
         case_data = {
