@@ -130,7 +130,8 @@ async def slack_events(request: Request):
 
 @slack_app.action("kyb_approve")
 async def handle_approve(ack, body, respond):
-    await ack()
+    logger.info(f"Received action_id: {body['actions'][0]['action_id']}")  # ← Add this line
+    ack()
     try:
         case_id = body["actions"][0]["value"].split("_")[1]
         logger.info(f"Approving case {case_id}")

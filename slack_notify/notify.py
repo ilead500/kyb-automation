@@ -37,12 +37,14 @@ def format_buttons(case_id: str) -> List[dict]:
                     "type": "button",
                     "text": {"type": "plain_text", "text": "Approve"},
                     "style": "primary",
+                    "action_id": "kyb_approve",  # ← Must match the decorator!
                     "value": f"approve_{case_id}"
                 },
                 {
                     "type": "button",
                     "text": {"type": "plain_text", "text": "Reject"},
                     "style": "danger",
+                    "action_id": "kyb_reject",
                     "value": f"reject_{case_id}"
                 }
             ]
@@ -92,3 +94,9 @@ def send_slack_message(data: Optional[Dict[str, Any]] = None,
             error_msg += f" | Status: {e.response.status_code} | Response: {e.response.text}"
         print(error_msg)
         return False
+    
+    # Add to slack_notify/notify.py
+def send_email(to: str, subject: str, body: str) -> bool:
+    """Mock email sender (replace with Gmail later)"""
+    print(f"📧 Email Draft to {to}:\nSubject: {subject}\nBody:\n{body}")
+    return True
