@@ -2,30 +2,68 @@ import os
 import requests
 from typing import Optional, Dict, Any, List
 
+# NEW: Add prohibited lists (from company doc)
+PROHIBITED_COUNTRIES = [
+    "Afghanistan", "Algeria", "Bangladesh", "Belarus", "Bhutan", 
+    "Bosnia and Herzegovina", "Burma (Myanmar)", "Burundi", 
+    "Central African Republic", "China", 
+    "The Democractic Republic of Congo", "Croatia" "Cuba", "Ethiopia", 
+    "Gaza Strip", "Guinea-Bissau", "Haiti", "Iran", "Iraq", "Kenya", 
+    "Kosovo", "Lebanon", "Libya", "Macedonia (North)", "Mali", 
+    "Montenegro", "Morocco", "Mozambique", "Nepal", "Nicaragua", 
+    "Niger", "North Korea", "Pakistan", "Qatar", "Russian Federation", 
+    "Serbia", "Slovenia", "Somalia", "South Sudan", "Sudan", "Syria", 
+    "Ukraine", "Venezuela (Bolivarian Republic of)", 
+    "West Bank (Palestinian Territory)", "Yemen", "Zimbabwe"
+    # ... [full list from company doc]
+]
+
+PROHIBITED_INDUSTRIES = [
+    "Gambling", "Marijuana/cannabis", "Guns", 
+    "Arms and ammunition", "Adult entertainment", 
+]
+
 def format_kyb_message(data: Dict[str, Any]) -> str:
-    """Format the KYB case details according to buyer's specifications"""
-    base_message = f"""
-✅ *KYB Case Review: {data['business']['name']}*  
-📋 *Status*: {data['status']}  
+    verification = data.get("verification_results", {})
+    business = data.get("business", {})
+    checklist = data.get("checklist_result", {})
+
+    # ===== STATUS CALCULATION =====
+    country_status = (
+        "❌ Prohibited" 
+        if business.get("country") in PROHIBITED_COUNTRIES 
+        else "✅ Allowed"
+    )
+    industry_status = (
+        "❌ Prohibited" 
+        if business.get("industry") in PROHIBITED_INDUSTRIES 
+        else "✅ Allowed"
+    )
+    
+    # ===== CORE MESSAGE =====
+    message = f"""
+✅ *KYB Case Review: {business.get('legal_name', business.get('name', 'N/A'))}*  
+📋 *Status*: {data.get('status', 'pending')}  
 🆔 *Case ID*: {data.get('id', 'N/A')}  
 
-🔍 *Verifications*:  
-   • Watchlist: ✅ No matches found  
-   • PEP: ✅ No matches found  
-   • Adverse Media: ✅ No matches found  
-   • Business Registry: ✅ Validated  
+📍 *Location*: {country_status}  
+🏭 *Industry*: {industry_status}  
 
-📍 *Locations & Industries*: ✅ All allowed  
-📄 *Documents*: ✅ All provided  
+🔍 *Verifications*:  
+   • Business Registry: {'✅ Valid' if verification.get('business_registry') == 'clear' else '❌ Invalid'}  
+   • Watchlist: {'✅ Clear' if verification.get('watchlist') == 'clear' else '❌ Match'}  
+   • PEP: {'✅ Clear' if verification.get('pep') == 'clear' else '❌ Match'}  
+   • Adverse Media: {'✅ Clear' if verification.get('adverse_media') == 'clear' else '❌ Match'}  
+   • Proof of Address: {'✅ Valid' if data.get('proof_of_address', {}).get('status') == 'approved' else '❌ Invalid'}  
 """
-    
-    # Add failures if they exist
-    if isinstance(data.get("checklist_result"), dict):
-        failures = data["checklist_result"].get("failures", [])
+
+    # ===== FAILURES SECTION =====
+    if isinstance(checklist, dict):
+        failures = checklist.get("failures", [])
         if failures:
-            base_message += "\n⚠️ *Issues Found:*\n• " + "\n• ".join(failures)
+            message += "\n⚠️ *Issues Found:*\n• " + "\n• ".join(failures)
     
-    return base_message
+    return message
 
 def format_buttons(case_id: str) -> List[dict]:
     """Standardized button format for Slack messages"""

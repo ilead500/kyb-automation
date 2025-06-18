@@ -1,27 +1,66 @@
 from datetime import datetime, timedelta
 
+# NEW: Add prohibited lists (from company doc)
+PROHIBITED_COUNTRIES = [
+    "Afghanistan", "Algeria", "Bangladesh", "Belarus", "Bhutan", 
+    "Bosnia and Herzegovina", "Burma (Myanmar)", "Burundi", 
+    "Central African Republic", "China", 
+    "The Democractic Republic of Congo", "Croatia" "Cuba", "Ethiopia", 
+    "Gaza Strip", "Guinea-Bissau", "Haiti", "Iran", "Iraq", "Kenya", 
+    "Kosovo", "Lebanon", "Libya", "Macedonia (North)", "Mali", 
+    "Montenegro", "Morocco", "Mozambique", "Nepal", "Nicaragua", 
+    "Niger", "North Korea", "Pakistan", "Qatar", "Russian Federation", 
+    "Serbia", "Slovenia", "Somalia", "South Sudan", "Sudan", "Syria", 
+    "Ukraine", "Venezuela (Bolivarian Republic of)", 
+    "West Bank (Palestinian Territory)", "Yemen", "Zimbabwe"
+    # ... [full list from company doc]
+]
+
+PROHIBITED_INDUSTRIES = [
+    "Gambling", "Marijuana/cannabis", "Guns", 
+    "Arms and ammunition", "Adult entertainment", 
+]
+
 def validate_kyb_checklist(data):
     failures = []
+    business = data.get("business", {})
     verification = data.get("verification_results", {})
     documents = data.get("proof_of_address", {})
     watchlist_hits = data.get("watchlist_hits", {})
 
-    # 1. Business Checks (Required by buyer)
-    if not data.get("business", {}).get("name"):
-        failures.append("Business name is missing")
-    if not data.get("business", {}).get("incorporation_country"):
-        failures.append("Incorporation country is missing")
+    # ===== 1. BUSINESS CHECKS =====
+    # NEW: Expanded required fields (company doc)
+    required_business_fields = [
+        "name",  # Original
+        "legal_name",  # NEW
+        "ein",  # NEW
+        "address",  # NEW
+        "incorporation_country"  # Original + renamed
+    ]
+    for field in required_business_fields:
+        if not business.get(field):
+            failures.append(f"Business {field.replace('_', ' ')} missing")
 
-    # 2. Control Person Checks
+    # ===== 2. PROHIBITED CHECKS ===== (NEW)
+    if business.get("country") in PROHIBITED_COUNTRIES:
+        failures.append(f"Prohibited country: {business['country']}")
+    if business.get("industry") in PROHIBITED_INDUSTRIES:
+        failures.append(f"Prohibited industry: {business['industry']}")
+
+    # ===== 3. CONTROL PERSON ===== (Original)
     if not data.get("control_person", {}).get("full_name"):
         failures.append("Control person full name is missing")
 
-    # 3. Beneficial Owners (Buyer requires verification)
-    if not any(bo.get("full_name") and bo.get("ownership") 
-           for bo in data.get("beneficial_owners", [])):
+    # ===== 4. BENEFICIAL OWNERS ===== (Original + enhanced)
+    beneficial_owners = data.get("beneficial_owners", [])
+    if not any(bo.get("full_name") and bo.get("ownership") for bo in beneficial_owners):
         failures.append("Valid beneficial owner missing")
+    # NEW: Check watchlist hits for owners
+    if watchlist_hits.get("beneficial_owners"):
+        failures.append("Beneficial owner watchlist match")
 
-    # 4. Document Verification (Critical 90-day check)
+    # ===== 5. DOCUMENT CHECKS =====
+    # Original 90-day logic + NEW status check
     if documents.get("status") != "approved":
         if not documents.get("document_date"):
             failures.append("Proof of address missing")
@@ -30,15 +69,14 @@ def validate_kyb_checklist(data):
             if (datetime.now() - doc_date) > timedelta(days=90):
                 failures.append("Proof of address expired (>90 days)")
 
-    # 5. Watchlist/PEP Checks (From both sources)
+    # ===== 6. WATCHLIST/PEP CHECKS =====
+    # Original dual-source verification
     if (verification.get("watchlist") != "clear" or 
         watchlist_hits.get("business")):
         failures.append("Business watchlist match")
     if (verification.get("pep") != "clear" or 
         watchlist_hits.get("control_person")):
         failures.append("PEP match detected")
-    if watchlist_hits.get("beneficial_owners"):
-        failures.append("Beneficial owner watchlist match")
 
     return {
         "passed": len(failures) == 0,
