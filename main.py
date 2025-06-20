@@ -67,8 +67,18 @@ def validate_environment():
 def decrypt_token(encrypted_token: str) -> str:
     """Decrypt tokens using Fernet"""
     try:
-        key = os.getenv("ENCRYPTION_KEY").encode()
-        return Fernet(key).decrypt(encrypted_token.encode()).decode()
+        # Retrieve the encryption key from environment variables
+        key = os.getenv("ENCRYPTION_KEY")
+        
+        if key is None:
+            raise ValueError("ENCRYPTION_KEY environment variable is not set.")
+        
+        # Create a Fernet object
+        fernet = Fernet(key.encode())
+        
+        # Decrypt the token
+        decrypted_token = fernet.decrypt(encrypted_token.encode()).decode()
+        return decrypted_token
     except Exception as e:
         logger.error(f"Decryption failed: {str(e)}")
         raise HTTPException(status_code=500, detail="Token decryption error")
@@ -121,12 +131,11 @@ async def fetch_persona_case(case_id: str) -> Dict[str, Any]:
 
 def log_action(action: str, case_id: str) -> None:
     """Log actions to database"""
-    logger.info(f"DB LOG: {json.dumps({'action': action,
+    logger.info(json.dumps({
+        'action': action,
         'case_id': case_id,
         'timestamp': int(time.time())
-        })
-    }"
-)
+    }))
 
 # ===== ROUTES =====
 @app.post("/slack/commands")

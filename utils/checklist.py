@@ -5,7 +5,7 @@ PROHIBITED_COUNTRIES = [
     "Afghanistan", "Algeria", "Bangladesh", "Belarus", "Bhutan", 
     "Bosnia and Herzegovina", "Burma (Myanmar)", "Burundi", 
     "Central African Republic", "China", 
-    "The Democractic Republic of Congo", "Croatia" "Cuba", "Ethiopia", 
+    "The Democratic Republic of Congo", "Croatia", "Cuba", "Ethiopia", 
     "Gaza Strip", "Guinea-Bissau", "Haiti", "Iran", "Iraq", "Kenya", 
     "Kosovo", "Lebanon", "Libya", "Macedonia (North)", "Mali", 
     "Montenegro", "Morocco", "Mozambique", "Nepal", "Nicaragua", 

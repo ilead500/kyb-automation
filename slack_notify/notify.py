@@ -7,7 +7,7 @@ PROHIBITED_COUNTRIES = [
     "Afghanistan", "Algeria", "Bangladesh", "Belarus", "Bhutan", 
     "Bosnia and Herzegovina", "Burma (Myanmar)", "Burundi", 
     "Central African Republic", "China", 
-    "The Democractic Republic of Congo", "Croatia" "Cuba", "Ethiopia", 
+    "The Democratic Republic of Congo", "Croatia", "Cuba", "Ethiopia", 
     "Gaza Strip", "Guinea-Bissau", "Haiti", "Iran", "Iraq", "Kenya", 
     "Kosovo", "Lebanon", "Libya", "Macedonia (North)", "Mali", 
     "Montenegro", "Morocco", "Mozambique", "Nepal", "Nicaragua", 
@@ -132,8 +132,7 @@ def send_slack_message(data: Optional[Dict[str, Any]] = None,
             error_msg += f" | Status: {e.response.status_code} | Response: {e.response.text}"
         print(error_msg)
         return False
-    
-    # Add to slack_notify/notify.py
+
 def send_email(to: str, subject: str, body: str) -> bool:
     """Mock email sender (replace with Gmail later)"""
     print(f"📧 Email Draft to {to}:\nSubject: {subject}\nBody:\n{body}")
