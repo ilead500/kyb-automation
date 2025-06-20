@@ -121,11 +121,12 @@ async def fetch_persona_case(case_id: str) -> Dict[str, Any]:
 
 def log_action(action: str, case_id: str) -> None:
     """Log actions to database"""
-    logger.info(f"DB LOG: {json.dumps({
-        'action': action,
+    logger.info(f"DB LOG: {json.dumps({'action': action,
         'case_id': case_id,
         'timestamp': int(time.time())
-    })}")
+        })
+    }"
+)
 
 # ===== ROUTES =====
 @app.post("/slack/commands")
