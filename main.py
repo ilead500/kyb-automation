@@ -6,7 +6,7 @@ import slack_sdk
 from pydantic import BaseModel
 from fastapi import FastAPI, Request, HTTPException, Form
 from fastapi.responses import JSONResponse
-from utils.checklist import validate_kyb_checklist, PROHIBITED_COUNTRIES, PROHIBITED_INDUSTRIES
+from utils.checklist import validate_kyb_checklist
 from slack_notify.notify import send_slack_message
 from dotenv import load_dotenv
 from secrets import compare_digest
@@ -18,6 +18,9 @@ import logging
 import time
 from typing import Dict, Any
 
+# Load environment variables from .env file
+load_dotenv()
+
 # ===== INITIALIZATION =====
 logging.basicConfig(
     level=logging.INFO,
@@ -27,6 +30,12 @@ logger = logging.getLogger(__name__)
 
 # ===== ENVIRONMENT VALIDATION =====
 def validate_environment():
+    persona_api_key = os.getenv("PERSONA_API_KEY")
+    logging.info(f"PERSONA_API_KEY: {persona_api_key}")  # Debug line
+    if not persona_api_key:
+        logging.critical("Invalid PERSONA_API_KEY: Failed validation check")
+        raise RuntimeError("Environment configuration invalid")
+    
     """Comprehensive environment validation with encryption support"""
     required_vars = {
         "SLACK_API_TOKEN": {
@@ -35,7 +44,7 @@ def validate_environment():
         },
         "PERSONA_API_KEY": {
             "description": "Persona API Key",
-            "validation": lambda x: len(x) == 32
+            "validation": lambda x: len(x) > 0  # Check if not empty
         },
         "PERSONA_WEBHOOK_SECRET": {
             "description": "Webhook signing secret",
@@ -63,26 +72,6 @@ def validate_environment():
         logger.critical("Environment validation failed:\n- " + "\n- ".join(errors))
         raise RuntimeError("Environment configuration invalid")
 
-# ===== ENCRYPTION SUPPORT =====
-def decrypt_token(encrypted_token: str) -> str:
-    """Decrypt tokens using Fernet"""
-    try:
-        # Retrieve the encryption key from environment variables
-        key = os.getenv("ENCRYPTION_KEY")
-        
-        if key is None:
-            raise ValueError("ENCRYPTION_KEY environment variable is not set.")
-        
-        # Create a Fernet object
-        fernet = Fernet(key.encode())
-        
-        # Decrypt the token
-        decrypted_token = fernet.decrypt(encrypted_token.encode()).decode()
-        return decrypted_token
-    except Exception as e:
-        logger.error(f"Decryption failed: {str(e)}")
-        raise HTTPException(status_code=500, detail="Token decryption error")
-
 # ===== MAIN APPLICATION SETUP =====
 def create_app():
     app = FastAPI()
@@ -104,12 +93,6 @@ def create_app():
 app, slack_app = create_app()
 handler = SlackRequestHandler(slack_app)
 
-# Load environment
-load_dotenv()
-slack_app = App(token=os.getenv("SLACK_API_TOKEN"))
-handler = SlackRequestHandler(slack_app)
-app = FastAPI()
-
 # ===== CORE FUNCTIONS =====
 async def fetch_persona_case(case_id: str) -> Dict[str, Any]:
     """Fetch KYB case data from Persona API"""
@@ -128,14 +111,6 @@ async def fetch_persona_case(case_id: str) -> Dict[str, Any]:
         except httpx.HTTPStatusError as e:
             logger.error(f"Persona API Error: {e.response.text}")
             return None
-
-def log_action(action: str, case_id: str) -> None:
-    """Log actions to database"""
-    logger.info(json.dumps({
-        'action': action,
-        'case_id': case_id,
-        'timestamp': int(time.time())
-    }))
 
 # ===== ROUTES =====
 @app.post("/slack/commands")
@@ -194,6 +169,10 @@ async def slack_command(
         })
 
 # ===== SLACK INTERACTIVITY =====
+def log_action(action: str, case_id: str):
+    """Log compliance actions for audit trail."""
+    logger.info(f"Action logged: {action.upper()} for case {case_id}")
+
 @slack_app.action("kyb_approve")
 async def handle_approve(ack, body, respond):
     await ack()
@@ -255,7 +234,7 @@ async def handle_persona_webhook(request: Request):
 
 @app.get("/")
 async def health_check():
-    return {"status": "OK"}
+    return {"message": "KYB Bot is running"}
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=int(os.getenv("PORT", 8080)))
